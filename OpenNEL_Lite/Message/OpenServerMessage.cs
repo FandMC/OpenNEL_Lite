@@ -31,7 +31,7 @@ internal class OpenServerMessage : IWsMessage
             var items = roles.Data.Select(r => new { id = r.Name, name = r.Name }).ToArray();
             return new { type = "server_roles", items, serverId };
         }
-        catch (System.Exception ex)
+        catch (Exception ex)
         {
             Log.Error(ex, "获取服务器角色失败: serverId={ServerId}", serverId);
             return new { type = "server_roles_error", message = "获取失败" };

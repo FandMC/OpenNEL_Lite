@@ -132,38 +132,9 @@ internal class GameManager
         {
             Interceptors[identifier] = connection;
         }
-        AppState.Channels[serverId] = new ChannelInfo
-        {
-            ServerId = serverId,
-            ServerName = serverName,
-            Ip = address.Data!.Ip,
-            Port = address.Data!.Port,
-            RoleName = selected.Name,
-            Cts = cts,
-            PlayerId = entityId,
-            ForwardHost = address.Data!.Ip,
-            ForwardPort = address.Data!.Port,
-            LocalPort = address.Data!.Port,
-            Connection = connection,
-            Identifier = identifier
-        };
-
+        
         await X19.InterconnectionApi.GameStartAsync(entityId, token, serverId);
         return true;
-    }
-    
-    public List<EntityQueryInterceptors> GetQueryInterceptors()
-    {
-        return Interceptors.Values.Select((Interceptor interceptor, int index) => new EntityQueryInterceptors
-        {
-            Id = index.ToString(),
-            Name = interceptor.Identifier,
-            Address = $"{interceptor.ForwardAddress}:{interceptor.ForwardPort}",
-            Role = interceptor.NickName,
-            Server = interceptor.ServerName,
-            Version = interceptor.ServerVersion,
-            LocalAddress = $"{interceptor.LocalAddress}:{interceptor.LocalPort}"
-        }).ToList();
     }
     
     public void ShutdownInterceptor(Guid identifier)

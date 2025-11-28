@@ -11,15 +11,6 @@ public static class X19Extensions
         return await X19.ApiPostAsync(url, body, otp.EntityId, otp.Token);
     }
 
-    public static async Task<T> Api<T>(this X19AuthenticationOtp otp, string url, string body)
-    {
-        var response = await otp.Api(url, body);
-        response.EnsureSuccessStatusCode();
-        var json = await response.Content.ReadAsStringAsync();
-        var result = JsonSerializer.Deserialize<T>(json);
-        return result!;
-    }
-
     public static async Task<TResult> Api<TBody, TResult>(this X19AuthenticationOtp otp, string url, TBody body)
     {
         var response = await otp.Api(url, JsonSerializer.Serialize(body));

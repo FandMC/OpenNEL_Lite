@@ -1,5 +1,4 @@
 using Codexus.Development.SDK.Manager;
-using Codexus.Game.Launcher.Utils;
 using Codexus.Interceptors;
 using Codexus.OpenSDK;
 using Codexus.OpenSDK.Entities.Yggdrasil;
@@ -15,7 +14,7 @@ internal class Program
 {
     static async Task Main(string[] args){
         ConfigureLogger();
-        AppState.Debug = Debug.Get();
+        AppState.Debug = IsDebug();
         Log.Information("OpenNEL github: {github}",AppInfo.GithubUrL);
         Log.Information("版本: {version}",AppInfo.AppVersion);
         Log.Information("QQ群: {qqgroup}",AppInfo.QQGroup);
@@ -23,7 +22,7 @@ internal class Program
         Log.Information("https://www.gnu.org/licenses/gpl-3.0.zh-cn.html");
         Log.Information(
             "\n" +
-            "OpenNEL  Copyright (C) 2025 OpenNEL_Lite Studio" +
+            "OpenNEL_Lite  Copyright (C) 2025 OpenNEL_Lite Studio" +
             "\n" +
             "本程序是自由软件，你可以重新发布或修改它，但必须：" +
             "\n" +
@@ -53,7 +52,6 @@ internal class Program
     static async Task InitializeSystemComponentsAsync()
     {
         Directory.CreateDirectory(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins"));
-        UserManager.Instance.ReadUsersFromDisk();
         Interceptor.EnsureLoaded();
         PacketManager.Instance.EnsureRegistered();
         PluginManager.Instance.EnsureUninstall();
@@ -74,5 +72,19 @@ internal class Program
         });
 
         return new Services(c4399, x19, yggdrasil);
+    }
+    public static bool IsDebug()
+    {
+        try
+        {
+            var args = Environment.GetCommandLineArgs();
+            foreach (var a in args)
+            {
+                if (string.Equals(a, "--debug", StringComparison.OrdinalIgnoreCase)) return true;
+            }
+        }
+        catch { }
+        var env = Environment.GetEnvironmentVariable("NEL_DEBUG");
+        return string.Equals(env, "1") || string.Equals(env, "true", StringComparison.OrdinalIgnoreCase);
     }
 }

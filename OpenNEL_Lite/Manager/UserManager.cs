@@ -131,17 +131,6 @@ public class UserManager : IUserManager
 		}
 	}
 
-	public List<EntityAccount> GetAvailableUsers()
-	{
-		Dictionary<string, EntityUser> userLookup = _users.ToDictionary<KeyValuePair<string, EntityUser>, string, EntityUser>((KeyValuePair<string, EntityUser> kvp) => kvp.Key, (KeyValuePair<string, EntityUser> kvp) => kvp.Value);
-		EntityUser value;
-		return _availableUsers.Values.Select((EntityAvailableUser available) => new EntityAccount
-		{
-			UserId = available.UserId,
-			Alias = (userLookup.TryGetValue(available.UserId, out value) ? value.Alias : string.Empty)
-		}).ToList();
-	}
-
 	public List<EntityUser> GetUsersNoDetails()
 	{
 		return _users.Values.Select((EntityUser u) => new EntityUser
@@ -217,34 +206,9 @@ public class UserManager : IUserManager
         }
 	}
 
-    public async Task ReadUsersFromDiskAsync()
-    {
-        await Task.CompletedTask;
-        Log.Information("已禁用用户的本地读取");
-    }
-
-    public void ReadUsersFromDisk()
-    {
-        ReadUsersFromDiskAsync().GetAwaiter().GetResult();
-    }
-
-    public void MarkDirtyAndScheduleSave()
-    {
-    }
-
-    private async Task SaveUsersToDiskIfDirtyAsync()
-    {
-        await Task.CompletedTask;
-    }
-
     public async Task SaveUsersToDiskAsync()
     {
         await Task.CompletedTask;
         Log.Information("已禁用用户的本地保存");
     }
-
-	public void SaveUsersToDisk()
-	{
-		SaveUsersToDiskAsync().GetAwaiter().GetResult();
-	}
 }
