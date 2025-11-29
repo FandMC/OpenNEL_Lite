@@ -6,14 +6,21 @@ namespace OpenNEL_Lite.Utils;
 
 public static class ConsoleBinder
 {
-    public static void Bind()
+    private const int SW_HIDE = 0;
+
+    public static void Bind(string[] args)
     {
         if (HasConsole()) return;
 
         var originalOut = Console.Out;
         var originalErr = Console.Error;
 
-        if (!AttachConsole(0xFFFFFFFF)) AllocConsole();
+        bool createdNewConsole = false;
+        if (!AttachConsole(0xFFFFFFFF)) 
+        {
+            AllocConsole();
+            createdNewConsole = true;
+        }
         
         try
         {
@@ -27,20 +34,30 @@ public static class ConsoleBinder
         catch
         {
         }
+
         try
         {
             Console.OutputEncoding = System.Text.Encoding.UTF8;
             Console.InputEncoding = System.Text.Encoding.UTF8;
             
+            // 创建指向新控制台的流写入器
             var consoleOut = new StreamWriter(Console.OpenStandardOutput()) { AutoFlush = true };
             var consoleErr = new StreamWriter(Console.OpenStandardError()) { AutoFlush = true };
 
+            // 设置双路输出：同时写入新控制台（满足库需求）和原始管道（满足父进程捕获）
             Console.SetOut(new MultiTextWriter(consoleOut, originalOut));
             Console.SetError(new MultiTextWriter(consoleErr, originalErr));
         }
         catch
         {
         }
+
+        if (createdNewConsole && (args.Contains("--background") || args.Contains("--no-console") || args.Contains("--headless")))
+        {
+            var hWnd = GetConsoleWindow();
+            if (hWnd != IntPtr.Zero) ShowWindow(hWnd, SW_HIDE);
+        }
+
         Log.Information("控制台已绑定");
     }
 
@@ -68,6 +85,12 @@ public static class ConsoleBinder
 
     [DllImport("kernel32.dll", CharSet = CharSet.Unicode, SetLastError = true)]
     static extern IntPtr CreateFileW(string lpFileName, uint dwDesiredAccess, uint dwShareMode, IntPtr lpSecurityAttributes, uint dwCreationDisposition, uint dwFlagsAndAttributes, IntPtr hTemplateFile);
+
+    [DllImport("kernel32.dll")]
+    static extern IntPtr GetConsoleWindow();
+
+    [DllImport("user32.dll")]
+    static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
     static readonly IntPtr INVALID_HANDLE_VALUE = new IntPtr(-1);
 

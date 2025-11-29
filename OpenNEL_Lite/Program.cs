@@ -13,7 +13,7 @@ namespace OpenNEL_Lite;
 internal class Program
 {
     static async Task Main(string[] args){
-        ConsoleBinder.Bind();
+        ConsoleBinder.Bind(args);
         ConfigureLogger();
         AppState.Debug = IsDebug();
         Log.Information("OpenNEL github: {github}",AppInfo.GithubUrL);
