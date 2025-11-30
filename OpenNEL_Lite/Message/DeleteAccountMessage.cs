@@ -1,8 +1,8 @@
-using OpenNEL.Network;
-using OpenNEL.Manager;
+using OpenNEL_Lite.Network;
+using OpenNEL_Lite.Manager;
 using System.Text.Json;
 using Serilog;
-namespace OpenNEL.Message.Login;
+namespace OpenNEL_Lite.Message.Login;
 
 internal class DeleteAccountMessage : IWsMessage
 {

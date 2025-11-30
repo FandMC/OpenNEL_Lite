@@ -37,6 +37,18 @@ internal class LoginX19Message : IWsMessage
             list.Add(new { type = "accounts", items });
             return list;
         }
+        catch (Codexus.Cipher.Utils.Exception.CaptchaException)
+        {
+            var captchaSid = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N").Substring(0, 8);
+            var msg = new { type = "captcha_required", sessionId = captchaSid };
+            return msg;
+        }
+        catch (ArgumentNullException)
+        {
+            var captchaSid = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N").Substring(0, 8);
+            var msg = new { type = "captcha_required", sessionId = captchaSid };
+            return msg;
+        }
         catch (System.Exception ex)
         {
             return new { type = "login_error", message = ex.Message ?? "登录失败" };

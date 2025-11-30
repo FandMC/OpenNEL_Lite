@@ -13,6 +13,7 @@ namespace OpenNEL_Lite;
 internal class Program
 {
     static async Task Main(string[] args){
+        ConfigureRuntime();
         ConsoleBinder.Bind(args);
         ConfigureLogger();
         AppState.Debug = IsDebug();
@@ -87,5 +88,9 @@ internal class Program
         catch { }
         var env = Environment.GetEnvironmentVariable("NEL_DEBUG");
         return string.Equals(env, "1") || string.Equals(env, "true", StringComparison.OrdinalIgnoreCase);
+    }
+    static void ConfigureRuntime()
+    {
+        Environment.SetEnvironmentVariable("COMPlus_UseSpecialUserModeApc", "0");
     }
 }
