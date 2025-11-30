@@ -34,7 +34,21 @@ internal class Program
             "\n" +
             "- 提供完整的源代码");
         
-        TcpServer server = new TcpServer(8080, "/gateway", Log.Logger);
+        int port = 8080;
+        for (int i = 0; i < args.Length; i++)
+        {
+            var a = args[i];
+            if (string.Equals(a, "--port", StringComparison.OrdinalIgnoreCase))
+            {
+                if (i + 1 < args.Length && int.TryParse(args[i + 1], out var p)) port = p;
+            }
+            else if (a.StartsWith("--port=", StringComparison.OrdinalIgnoreCase))
+            {
+                var v = a.Substring("--port=".Length);
+                if (int.TryParse(v, out var p)) port = p;
+            }
+        }
+        TcpServer server = new TcpServer(port, "/gateway", Log.Logger);
         await server.StartAsync();
         await InitializeSystemComponentsAsync();
         AppState.Services = await CreateServices();

@@ -25,7 +25,7 @@ internal class TcpServer
     private readonly ILogger _logger;
     private readonly string _path;
     
-    public TcpServer(int defaultPort = 8080, string path = "/", ILogger? logger = null)
+    public TcpServer(int defaultPort, string path = "/", ILogger? logger = null)
     {
         _path = path;
         _clients = new ConcurrentDictionary<Guid, TcpClient>();
@@ -68,13 +68,6 @@ internal class TcpServer
         }
         _running = true;
         _ = AcceptLoopAsync(_cts.Token);
-    }
-
-    int GetPort()
-    {
-        var env = Environment.GetEnvironmentVariable("NEL_PORT");
-        if (int.TryParse(env, out var p) && p > 0) return p;
-        return 8080;
     }
 
     async Task HandleTcpClientAsync(TcpClient client)
