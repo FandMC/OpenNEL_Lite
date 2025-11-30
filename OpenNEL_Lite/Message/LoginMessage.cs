@@ -26,7 +26,7 @@ public class LoginMessage : IWsMessage
         if (string.Equals(msgType, "cookie_login", StringComparison.OrdinalIgnoreCase))
         {
             var cookie = root.TryGetProperty("cookie", out var ck) ? ck.GetString() : string.Empty;
-            LoginWithChannelAndType("netease", "cookie", cookie ?? string.Empty, Enums.Platform.Desktop, string.Empty);
+            LoginWithChannelAndType("netease", "cookie", cookie ?? string.Empty, Platform.Desktop, string.Empty);
             var last = UserManager.Instance.GetLastAvailableUser();
             var list = new System.Collections.ArrayList();
             if (last != null)
@@ -41,23 +41,34 @@ public class LoginMessage : IWsMessage
         }
         if (string.Equals(msgType, "login_4399", StringComparison.OrdinalIgnoreCase))
         {
-            var account = root.TryGetProperty("account", out var acc) ? acc.GetString() : string.Empty;
-            var password = root.TryGetProperty("password", out var pwd) ? pwd.GetString() : string.Empty;
-            var sessionId = root.TryGetProperty("sessionId", out var sid) ? sid.GetString() : null;
-            var captcha = root.TryGetProperty("captcha", out var cap) ? cap.GetString() : null;
-            var req = new EntityPasswordRequest { Account = account ?? string.Empty, Password = password ?? string.Empty, CaptchaIdentifier = sessionId, Captcha = captcha };
-            LoginWithChannelAndType("4399pc", "password", JsonSerializer.Serialize(req), Enums.Platform.Desktop, string.Empty);
-            var last = UserManager.Instance.GetLastAvailableUser();
-            var list = new System.Collections.ArrayList();
-            if (last != null)
+            try
             {
-                var u = UserManager.Instance.GetUserByEntityId(last.UserId);
-                if (u != null) list.Add(new { type = "Success_login", entityId = u.UserId, channel = u.Channel });
+                var account = root.TryGetProperty("account", out var acc) ? acc.GetString() : string.Empty;
+                var password = root.TryGetProperty("password", out var pwd) ? pwd.GetString() : string.Empty;
+                var sessionId = root.TryGetProperty("sessionId", out var sid) ? sid.GetString() : null;
+                var captcha = root.TryGetProperty("captcha", out var cap) ? cap.GetString() : null;
+                var req = new EntityPasswordRequest { Account = account ?? string.Empty, Password = password ?? string.Empty, CaptchaIdentifier = sessionId, Captcha = captcha };
+                LoginWithChannelAndType("4399pc", "password", JsonSerializer.Serialize(req), Enums.Platform.Desktop, string.Empty);
+                var last = UserManager.Instance.GetLastAvailableUser();
+                var list = new System.Collections.ArrayList();
+                if (last != null)
+                {
+                    var u = UserManager.Instance.GetUserByEntityId(last.UserId);
+                    if (u != null) list.Add(new { type = "Success_login", entityId = u.UserId, channel = u.Channel });
+                }
+                var users = UserManager.Instance.GetUsersNoDetails();
+                var items = users.Select(u => new { entityId = u.UserId, channel = u.Channel, status = u.Authorized ? "online" : "offline" }).ToArray();
+                list.Add(new { type = "accounts", items });
+                return list;
             }
-            var users = UserManager.Instance.GetUsersNoDetails();
-            var items = users.Select(u => new { entityId = u.UserId, channel = u.Channel, status = u.Authorized ? "online" : "offline" }).ToArray();
-            list.Add(new { type = "accounts", items });
-            return list;
+            catch (CaptchaException)
+            {
+                return new { type = "login_4399_error", message = "captcha required" };
+            }
+            catch (Exception ex)
+            {
+                return new { type = "login_4399_error", message = ex.Message ?? "登录失败" };
+            }
         }
         if (string.Equals(msgType, "login_x19", StringComparison.OrdinalIgnoreCase))
         {
@@ -111,7 +122,7 @@ public class LoginMessage : IWsMessage
             }
             catch (Exception ex)
             {
-                return new { type = "activate_account_error", message = ex.Message ?? "激活失败" };
+                return new { type = "activate_account_error", message = ex.Message ?? "激活失败", detail = ex.ToString() };
             }
         }
         EntityLoginRequest? entity = JsonSerializer.Deserialize<EntityLoginRequest>(root.GetRawText());
@@ -321,43 +332,30 @@ public class LoginMessage : IWsMessage
         {
             throw new ArgumentException("Invalid password login details");
         }
-        if (platform == Platform.Mobile)
+        using Pc4399 pc = new Pc4399();
+        string result2;
+        try
         {
-            Log.Information("Waiting for 4399 login...");
-            string result = AppState.Com4399.LoginAndAuthorize(entityPasswordRequest.Account, entityPasswordRequest.Password).GetAwaiter().GetResult();
-            var (authOtp4399Mobile, loginChannel4399Mobile) = AppState.X19.LoginWithCookie(result);
-            Log.Information("Login with 4399 password on mobile: {UserId}", authOtp4399Mobile.EntityId);
-            Log.Debug("User details: {UserId},{Token}", authOtp4399Mobile.EntityId, authOtp4399Mobile.Token);
-            UserManager.Instance.AddUserToMaintain(authOtp4399Mobile);
-            UserManager.Instance.AddUser(new EntityUser
-            {
-                UserId = authOtp4399Mobile.EntityId,
-                Authorized = true,
-                AutoLogin = false,
-                Channel = loginChannel4399Mobile,
-                Type = "password",
-                Details = JsonSerializer.Serialize(new EntityPasswordRequest
-                {
-                    Account = entityPasswordRequest.Account,
-                    Password = entityPasswordRequest.Password
-                })
-            });
-            return;
+            result2 = pc.LoginWithPasswordAsync(entityPasswordRequest.Account, entityPasswordRequest.Password, entityPasswordRequest.CaptchaIdentifier, entityPasswordRequest.Captcha).GetAwaiter().GetResult();
         }
-        AppState.Services!.X19.InitializeDeviceAsync().GetAwaiter().GetResult();
-        string result2 = (!string.IsNullOrWhiteSpace(entityPasswordRequest.CaptchaIdentifier) && !string.IsNullOrWhiteSpace(entityPasswordRequest.Captcha))
-            ? AppState.Services!.C4399.LoginWithPasswordAsync(entityPasswordRequest.Account, entityPasswordRequest.Password, entityPasswordRequest.CaptchaIdentifier!, entityPasswordRequest.Captcha!).GetAwaiter().GetResult()
-            : AppState.Services!.C4399.LoginWithPasswordAsync(entityPasswordRequest.Account, entityPasswordRequest.Password).GetAwaiter().GetResult();
-        var (authOtp4399Pc, loginChannel4399Pc) = AppState.X19.LoginWithCookie(result2);
-        Log.Information("Login with password: {UserId} Channel: {LoginChannel}", authOtp4399Pc.EntityId, loginChannel4399Pc);
-        Log.Debug("User details: {UserId},{Token}", authOtp4399Pc.EntityId, authOtp4399Pc.Token);
-        UserManager.Instance.AddUserToMaintain(authOtp4399Pc);
+        catch (CaptchaException)
+        {
+            throw new CaptchaException("captcha required");
+        }
+        if (string.IsNullOrWhiteSpace(result2))
+        {
+            throw new Exception("cookie empty");
+        }
+        var (entityAuthenticationOtp2, text) = AppState.X19.LoginWithCookie(result2);
+        Log.Information("Login with password: {UserId} Channel: {LoginChannel}", entityAuthenticationOtp2.EntityId, text);
+        Log.Debug("User details: {UserId},{Token}", entityAuthenticationOtp2.EntityId, entityAuthenticationOtp2.Token);
+        UserManager.Instance.AddUserToMaintain(entityAuthenticationOtp2);
         UserManager.Instance.AddUser(new EntityUser
         {
-            UserId = authOtp4399Pc.EntityId,
+            UserId = entityAuthenticationOtp2.EntityId,
             Authorized = true,
             AutoLogin = false,
-            Channel = loginChannel4399Pc,
+            Channel = text,
             Type = "password",
             Details = JsonSerializer.Serialize(new EntityPasswordRequest
             {
@@ -375,7 +373,6 @@ public class LoginMessage : IWsMessage
             throw new ArgumentException("Invalid email login details");
         }
         WPFLauncher x = AppState.X19;
-        // x.InitializeDeviceAsync().GetAwaiter().GetResult();
         EntityX19CookieRequest entityX19CookieRequest = WPFLauncher.GenerateCookie(x.LoginWithEmailAsync(entityPasswordRequest.Account, entityPasswordRequest.Password).GetAwaiter().GetResult(), x.MPay.GetDevice());
         var (authOtpEmail, loginChannelEmail) = x.LoginWithCookie(entityX19CookieRequest);
         Log.Information("Login with email: {UserId} Channel: {LoginChannel}", authOtpEmail.EntityId, loginChannelEmail);
