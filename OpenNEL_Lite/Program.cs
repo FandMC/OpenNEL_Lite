@@ -66,14 +66,21 @@ internal class Program
     }
     
     static async Task InitializeSystemComponentsAsync()
-    {
-        Directory.CreateDirectory(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins"));
-        Interceptor.EnsureLoaded();
-        PacketManager.Instance.EnsureRegistered();
-        PluginManager.Instance.EnsureUninstall();
-        PluginManager.Instance.LoadPlugins("plugins");
-        await Task.CompletedTask;
-    }
+        {
+            Directory.CreateDirectory(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "plugins"));
+            Interceptor.EnsureLoaded();
+            PacketManager.Instance.EnsureRegistered();
+            try
+            {
+                PluginManager.Instance.EnsureUninstall();
+                PluginManager.Instance.LoadPlugins("plugins");
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "插件加载失败");
+            }
+            await Task.CompletedTask;
+        }
 
     static async Task<Services> CreateServices()
     {
@@ -84,7 +91,7 @@ internal class Program
         {
             LauncherVersion = x19.GameVersion,
             Channel = "netease",
-            CrcSalt = "22AC4B0143EFFC80F2905B267D4D84D3"
+            CrcSalt = "6682E0F553668A406E16A99B6D76E283"
         });
 
         return new Services(c4399, x19, yggdrasil);
