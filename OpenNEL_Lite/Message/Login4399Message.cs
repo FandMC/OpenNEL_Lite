@@ -22,31 +22,25 @@ internal class Login4399Message : IWsMessage
         var captcha = root.TryGetProperty("captcha", out var cap) ? cap.GetString() : null;
         try
         {
-        OpenNEL_Lite.type.AppState.Services!.X19.InitializeDeviceAsync().GetAwaiter().GetResult();
-        string cookieJson = (!string.IsNullOrWhiteSpace(sessionId) && !string.IsNullOrWhiteSpace(captcha))
-            ? OpenNEL_Lite.type.AppState.Services!.C4399.LoginWithPasswordAsync(account ?? string.Empty, password ?? string.Empty, sessionId!, captcha!).GetAwaiter().GetResult()
-            : OpenNEL_Lite.type.AppState.Services!.C4399.LoginWithPasswordAsync(account ?? string.Empty, password ?? string.Empty).GetAwaiter().GetResult();
-        if (AppState.Debug) Log.Information("4399 Login cookieJson length: {Length}", cookieJson?.Length ?? 0);
-        if (string.IsNullOrWhiteSpace(cookieJson))
-        {
-            var err = new { type = "login_4399_error", message = "cookie empty" };
-            if (AppState.Debug) Log.Information("WS SendText: {Message}", JsonSerializer.Serialize(err));
-            return err;
-        }
-        Codexus.Cipher.Entities.WPFLauncher.EntityX19CookieRequest cookieReq;
-        try
-        {
-            cookieReq = JsonSerializer.Deserialize<Codexus.Cipher.Entities.WPFLauncher.EntityX19CookieRequest>(cookieJson) ?? new Codexus.Cipher.Entities.WPFLauncher.EntityX19CookieRequest { Json = cookieJson };
-        }
-        catch (Exception de)
-        {
-            if (AppState.Debug) Log.Error(de, "Deserialize cookieJson failed: length={Length}", cookieJson?.Length ?? 0);
+            AppState.Services!.X19.InitializeDeviceAsync().GetAwaiter().GetResult();
+            var c4399 = new Codexus.OpenSDK.C4399();
+            string cookieJson = (!string.IsNullOrWhiteSpace(sessionId) && !string.IsNullOrWhiteSpace(captcha))
+                ? c4399.LoginWithPasswordAsync(account, password, sessionId, captcha).GetAwaiter().GetResult()
+                : c4399.LoginWithPasswordAsync(account, password).GetAwaiter().GetResult();
+            if (AppState.Debug) Log.Information("4399 Login cookieJson length: {Length}", cookieJson.Length);
+            if (string.IsNullOrWhiteSpace(cookieJson))
+            {
+                var err = new { type = "login_4399_error", message = "cookie empty" };
+                return err;
+            }
+            Codexus.Cipher.Entities.WPFLauncher.EntityX19CookieRequest cookieReq;
+            
             cookieReq = new Codexus.Cipher.Entities.WPFLauncher.EntityX19CookieRequest { Json = cookieJson };
-        }
-        var (authOtp, channel) = OpenNEL_Lite.type.AppState.X19.LoginWithCookie(cookieReq);
+            
+            var (authOtp, channel) = AppState.X19.LoginWithCookie(cookieReq);
             if (AppState.Debug) Log.Information("X19 LoginWithCookie: {UserId} Channel: {Channel}", authOtp.EntityId, channel);
             UserManager.Instance.AddUserToMaintain(authOtp);
-            UserManager.Instance.AddUser(new OpenNEL_Lite.Entities.Web.EntityUser
+            UserManager.Instance.AddUser(new Entities.Web.EntityUser
             {
                 UserId = authOtp.EntityId,
                 Authorized = true,
@@ -60,7 +54,6 @@ internal class Login4399Message : IWsMessage
             var users = UserManager.Instance.GetUsersNoDetails();
             var items = users.Select(u => new { entityId = u.UserId, channel = u.Channel, status = u.Authorized ? "online" : "offline" }).ToArray();
             list.Add(new { type = "accounts", items });
-            if (AppState.Debug) Log.Information("WS SendText: {Message}", JsonSerializer.Serialize(list));
             return list;
         }
         catch (CaptchaException ce)
