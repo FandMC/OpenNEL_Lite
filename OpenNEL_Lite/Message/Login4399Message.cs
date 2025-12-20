@@ -77,7 +77,7 @@ internal class Login4399Message : IWsMessage
             var msg = ex.Message ?? string.Empty;
             var lower = msg.ToLowerInvariant();
             if (AppState.Debug) Log.Error(ex, "WS 4399 login exception. account={Account} sid={Sid}", account ?? string.Empty, sessionId ?? string.Empty);
-            if (lower.Contains("parameter") && lower.Contains("'s'"))
+            if (msg == "Captcha required")
             {
                 var captchaSid = Guid.NewGuid().ToString("N") + Guid.NewGuid().ToString("N").Substring(0, 8);
                 var url = "https://ptlogin.4399.com/ptlogin/captcha.do?captchaId=" + captchaSid;
