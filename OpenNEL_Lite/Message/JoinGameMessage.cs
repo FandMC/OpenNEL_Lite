@@ -19,6 +19,7 @@ internal class JoinGameMessage : IWsMessage
 {
     private EntityJoinGame? _request;
     public string Type => "join_game";
+
     public async Task<object?> ProcessAsync(JsonElement root)
     {
         _request = JsonSerializer.Deserialize<EntityJoinGame>(root);
@@ -31,11 +32,12 @@ internal class JoinGameMessage : IWsMessage
         {
             return new { type = "start_error", message = "参数错误" };
         }
+
         try
         {
             var ok = await StartAsync(serverId!, serverName, role!);
             if (!ok.Item1) return new { type = "start_error", message = "启动失败" };
-            return new { type = "channels_updated", address = ok.Item2 };
+            return new { type = "channels_updated", address = ok.Item2, guid = ok.Item3 };
         }
         catch (System.Exception ex)
         {
@@ -44,10 +46,10 @@ internal class JoinGameMessage : IWsMessage
         }
     }
 
-    public async Task<(bool,string)> StartAsync(string serverId, string serverName, string roleId)
+    public async Task<(bool, string, string)> StartAsync(string serverId, string serverName, string roleId)
     {
         var available = UserManager.Instance.GetLastAvailableUser();
-        if (available == null) return (false,"");
+        if (available == null) return (false, "", "");
         var entityId = available.UserId;
         var token = available.AccessToken;
         var auth = new Codexus.OpenSDK.Entities.X19.X19AuthenticationOtp { EntityId = entityId, Token = token };
@@ -56,7 +58,7 @@ internal class JoinGameMessage : IWsMessage
             "/game-character/query/user-game-characters",
             new EntityQueryGameCharacters { GameId = serverId, UserId = entityId });
         var selected = roles.Data.FirstOrDefault(r => r.Name == roleId);
-        if (selected == null) return (false,"");
+        if (selected == null) return (false, "", "");
 
         var details = await auth.Api<EntityQueryNetGameDetailRequest, Entity<EntityQueryNetGameDetailItem>>(
             "/item-details/get_v2",
@@ -79,46 +81,53 @@ internal class JoinGameMessage : IWsMessage
         SemaphoreSlim authorizedSignal = new SemaphoreSlim(0);
         var pair = Md5Mapping.GetMd5FromGameVersion(version.Name);
 
-        Interceptor interceptor = Interceptor.CreateInterceptor(_request.Socks5, mods, serverId, serverName, version.Name, address.Data!.Ip, address.Data!.Port, _request.Role, available.UserId, available.AccessToken, delegate(string certification)
-        {
-            Log.Logger.Information("Server certification: {Certification}", certification);
-            Task.Run(async delegate
+        Interceptor interceptor = Interceptor.CreateInterceptor(_request.Socks5, mods, serverId, serverName,
+            version.Name, address.Data!.Ip, address.Data!.Port, _request.Role, available.UserId, available.AccessToken,
+            delegate(string certification)
             {
-                try
+                Log.Logger.Information("Server certification: {Certification}", certification);
+                Task.Run(async delegate
                 {
-                    var latest = UserManager.Instance.GetAvailableUser(entityId);
-                    var currentToken = latest?.AccessToken ?? token;
-                    var success = await AppState.Services!.Yggdrasil.JoinServerAsync(new Codexus.OpenSDK.Entities.Yggdrasil.GameProfile
+                    try
                     {
-                        GameId = serverId,
-                        GameVersion = version.Name,
-                        BootstrapMd5 = pair.BootstrapMd5,
-                        DatFileMd5 = pair.DatFileMd5,
-                        Mods = JsonSerializer.Deserialize<Codexus.OpenSDK.Entities.Yggdrasil.ModList>(mods)!,
-                        User = new Codexus.OpenSDK.Entities.Yggdrasil.UserProfile { UserId = int.Parse(entityId), UserToken = currentToken }
-                    }, certification);
-                    if (success.IsSuccess) if (AppState.Debug) Log.Information("消息认证成功");
-                        else
-                        {
-                            if (AppState.Debug)Log.Error(new Exception(success.Error ?? "未知错误"), "消息认证失败，详细信息: {Error}", success.Error);
-                            else Log.Error("消息认证失败: {Error}", success.Error);
-                        }
-                }
-                catch (Exception e)
-                {
-                    Log.Error(e, "认证过程中发生异常");
-                }
-                finally
-                {
-                    authorizedSignal.Release();
-                }
+                        var latest = UserManager.Instance.GetAvailableUser(entityId);
+                        var currentToken = latest?.AccessToken ?? token;
+                        var success = await AppState.Services!.Yggdrasil.JoinServerAsync(
+                            new Codexus.OpenSDK.Entities.Yggdrasil.GameProfile
+                            {
+                                GameId = serverId,
+                                GameVersion = version.Name,
+                                BootstrapMd5 = pair.BootstrapMd5,
+                                DatFileMd5 = pair.DatFileMd5,
+                                Mods = JsonSerializer.Deserialize<Codexus.OpenSDK.Entities.Yggdrasil.ModList>(mods)!,
+                                User = new Codexus.OpenSDK.Entities.Yggdrasil.UserProfile
+                                    { UserId = int.Parse(entityId), UserToken = currentToken }
+                            }, certification);
+                        if (success.IsSuccess)
+                            if (AppState.Debug) Log.Information("消息认证成功");
+                            else
+                            {
+                                if (AppState.Debug)
+                                    Log.Error(new Exception(success.Error ?? "未知错误"), "消息认证失败，详细信息: {Error}",
+                                        success.Error);
+                                else Log.Error("消息认证失败: {Error}", success.Error);
+                            }
+                    }
+                    catch (Exception e)
+                    {
+                        Log.Error(e, "认证过程中发生异常");
+                    }
+                    finally
+                    {
+                        authorizedSignal.Release();
+                    }
+                });
+                authorizedSignal.Wait();
             });
-            authorizedSignal.Wait();
-        });
         InterConn.GameStart(available.UserId, available.AccessToken, _request.GameId).GetAwaiter().GetResult();
         GameManager.Instance.AddInterceptor(interceptor);
 
         await X19.InterconnectionApi.GameStartAsync(entityId, available.AccessToken, serverId);
-        return (true,$"{interceptor.LocalAddress}:{interceptor.LocalPort}");
+        return (true, $"{interceptor.LocalAddress}:{interceptor.LocalPort}", interceptor.Identifier.ToString());
     }
 }
