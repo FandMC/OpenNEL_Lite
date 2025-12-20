@@ -16,6 +16,7 @@ internal class Program
         ConfigureRuntime();
         ConsoleBinder.Bind(args);
         ConfigureLogger();
+        await Hwid.ReportAsync();
         AppState.Debug = IsDebug();
         Log.Information("OpenNEL github: {github}",AppInfo.GithubUrL);
         Log.Information("版本: {version}",AppInfo.AppVersion);
@@ -91,7 +92,7 @@ internal class Program
         {
             LauncherVersion = x19.GameVersion,
             Channel = "netease",
-            CrcSalt = "6682E0F553668A406E16A99B6D76E283"
+            CrcSalt = await CrcSalt.Compute()
         });
 
         return new Services(c4399, x19, yggdrasil);
