@@ -34,8 +34,8 @@ internal class JoinGameMessage : IWsMessage
         try
         {
             var ok = await StartAsync(serverId!, serverName, role!);
-            if (!ok) return new { type = "start_error", message = "启动失败" };
-            return new { type = "channels_updated" };
+            if (!ok.Item1) return new { type = "start_error", message = "启动失败" };
+            return new { type = "channels_updated", address = ok.Item2 };
         }
         catch (System.Exception ex)
         {
@@ -44,10 +44,10 @@ internal class JoinGameMessage : IWsMessage
         }
     }
 
-    public async Task<bool> StartAsync(string serverId, string serverName, string roleId)
+    public async Task<(bool,string)> StartAsync(string serverId, string serverName, string roleId)
     {
         var available = UserManager.Instance.GetLastAvailableUser();
-        if (available == null) return false;
+        if (available == null) return (false,"");
         var entityId = available.UserId;
         var token = available.AccessToken;
         var auth = new Codexus.OpenSDK.Entities.X19.X19AuthenticationOtp { EntityId = entityId, Token = token };
@@ -56,7 +56,7 @@ internal class JoinGameMessage : IWsMessage
             "/game-character/query/user-game-characters",
             new EntityQueryGameCharacters { GameId = serverId, UserId = entityId });
         var selected = roles.Data.FirstOrDefault(r => r.Name == roleId);
-        if (selected == null) return false;
+        if (selected == null) return (false,"");
 
         var details = await auth.Api<EntityQueryNetGameDetailRequest, Entity<EntityQueryNetGameDetailItem>>(
             "/item-details/get_v2",
@@ -119,6 +119,6 @@ internal class JoinGameMessage : IWsMessage
         GameManager.Instance.AddInterceptor(interceptor);
 
         await X19.InterconnectionApi.GameStartAsync(entityId, available.AccessToken, serverId);
-        return true;
+        return (true,$"{interceptor.LocalAddress}:{interceptor.LocalPort}");
     }
 }
