@@ -1,3 +1,4 @@
+using Codexus.Cipher.Protocol;
 using Codexus.Development.SDK.Manager;
 using Codexus.Interceptors;
 using Codexus.OpenSDK;
@@ -53,6 +54,7 @@ internal class Program
         await server.StartAsync();
         await InitializeSystemComponentsAsync();
         AppState.Services = await CreateServices();
+        AppState.Com4399 = new Com4399();
         await AppState.Services.X19.InitializeDeviceAsync();
 
         await Task.Delay(Timeout.Infinite);
