@@ -54,7 +54,6 @@ internal class Program
         await server.StartAsync();
         await InitializeSystemComponentsAsync();
         AppState.Services = await CreateServices();
-        AppState.Com4399 = new Com4399();
         await AppState.Services.X19.InitializeDeviceAsync();
 
         await Task.Delay(Timeout.Infinite);

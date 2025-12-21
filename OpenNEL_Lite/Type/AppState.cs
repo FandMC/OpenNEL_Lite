@@ -14,7 +14,7 @@ internal static class AppState
 
     public static bool Debug;
 
-    public static Com4399 Com4399 = null;
+    public static Com4399 Com4399 => _com4399.Value;
 
     public static WPFLauncher X19 => _x19.Value;
 }
