@@ -18,6 +18,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 using System;
 using Serilog;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -27,7 +28,7 @@ namespace OpenNEL_Lite.Utils;
 
 public static class CrcSalt
 {
-    static readonly string Default = "E520638AC4C3C93A1188664010769EEC";
+    static readonly string Default = "54BB806A61CC561CDC3596E917E0032E";
     static string Cached = Default;
     static DateTime LastFetch = DateTime.MinValue;
     static readonly TimeSpan Refresh = TimeSpan.FromHours(1);
@@ -40,7 +41,8 @@ public static class CrcSalt
             var hwid = Hwid.Compute();
             using var client = new HttpClient();
             using var content = new StringContent(hwid, Encoding.UTF8, "text/plain");
-            var resp = await client.PostAsync(AppInfo.CrcSaltEndpoint, content);
+            client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", "*****");
+            var resp = await client.GetAsync("https://service.codexus.today/crc-salt");
             var json = await resp.Content.ReadAsStringAsync();
             if (!resp.IsSuccessStatusCode)
             {
@@ -50,14 +52,14 @@ public static class CrcSalt
                 return Cached;
             }
             var obj = JsonSerializer.Deserialize<CrcSaltResponse>(json);
-            if (obj == null || obj.success != true || string.IsNullOrWhiteSpace(obj.crcSalt))
+            if (obj == null || obj.success != true || string.IsNullOrWhiteSpace(obj.data.crcSalt))
             {
                 Log.Error("CRC盐响应无效: {Body}", json);
                 Cached = Default;
                 LastFetch = DateTime.UtcNow;
                 return Cached;
             }
-            Cached = obj.crcSalt;
+            Cached = obj.data.crcSalt;
             LastFetch = DateTime.UtcNow;
             Log.Information("CRC请求成功: {Body}", json);
             return Cached;
@@ -71,5 +73,6 @@ public static class CrcSalt
         }
     }
 
-    record CrcSaltResponse(bool success, string? crcSalt, string? gameVersion, string? error);
+    record CrcSaltResponse(bool success, CrcSaltData data, string? error);
+    record CrcSaltData(string? crcSalt, string? gameVersion);
 }
